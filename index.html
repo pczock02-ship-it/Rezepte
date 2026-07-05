@@ -22,7 +22,7 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; height:100%; background:var(--bg); overscroll-behavior-y:none;}
+  html,body{margin:0; padding:0; height:100%; background:var(--bg); overscroll-behavior:none;}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     color:var(--text); display:flex; flex-direction:column; height:100vh; overflow:hidden;
@@ -96,7 +96,7 @@
   .chip.active .fav-star{ color:#14161C; }
 
   /* ---------- Liste ---------- */
-  main{ flex:1; overflow-y:auto; padding: 14px 16px calc(24px + var(--safe-bottom)); }
+  main{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding: 14px 16px calc(24px + var(--safe-bottom)); }
   .count-lbl{ color:var(--text-faint); font-size:12px; margin: 2px 4px 12px; }
   .empty{ text-align:center; color:var(--text-faint); font-size:14px; margin-top:60px; padding:0 30px; line-height:1.6; }
 
@@ -139,11 +139,12 @@
   /* ---------- Detailansicht ---------- */
   .sheet{
     position:fixed; inset:0; background:var(--bg); z-index:50;
-    display:flex; flex-direction:column; transform:translateY(100%);
+    display:flex; flex-direction:column; transform:translate3d(0,100%,0);
     transition:transform .28s cubic-bezier(.32,.72,.35,1);
+    will-change:transform; backface-visibility:hidden; isolation:isolate;
   }
-  .sheet.open{ transform:translateY(0); }
-  .sheet-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .sheet.open{ transform:translate3d(0,0,0); }
+  .sheet-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
 
   .hero{ position:relative; height:230px; background-color:var(--bg2); overflow:hidden; }
   .hero-gallery{
@@ -254,10 +255,11 @@
   /* ---------- Formular-Sheet ---------- */
   .form-sheet{
     position:fixed; inset:0; background:var(--bg); z-index:90;
-    display:flex; flex-direction:column; transform:translateY(100%);
+    display:flex; flex-direction:column; transform:translate3d(0,100%,0);
     transition:transform .28s cubic-bezier(.32,.72,.35,1);
+    will-change:transform; backface-visibility:hidden; isolation:isolate;
   }
-  .form-sheet.open{ transform:translateY(0); }
+  .form-sheet.open{ transform:translate3d(0,0,0); }
   .form-header{
     display:flex; align-items:center; gap:12px; padding: calc(14px + var(--safe-top)) 16px 12px;
     border-bottom:1px solid var(--border); flex-shrink:0;
@@ -265,7 +267,7 @@
   .form-header h2{ font-size:17px; font-weight:800; margin:0; flex:1; }
   .form-header button{ background:none; border:none; color:var(--text-dim); font-size:15px; padding:6px; }
   .form-header .saveBtn{ color:var(--gold); font-weight:800; }
-  .form-scroll{ flex:1; overflow-y:auto; padding:18px 18px calc(30px + var(--safe-bottom)); }
+  .form-scroll{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding:18px 18px calc(30px + var(--safe-bottom)); }
   .field{ margin-bottom:18px; }
   .field label{ display:block; font-size:12.5px; font-weight:700; color:var(--text-dim); margin-bottom:7px; }
   .field input[type=text], .field input[type=number], .field select, .field textarea{
@@ -322,7 +324,6 @@
     <input type="file" id="backupInput" accept="application/json,.json" style="display:none;">
     <button class="menu-item" id="importFolderBtn">📂 Alte Rezepte aus Ordner importieren</button>
     <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none;">
-    <button class="menu-item" id="restoreBuiltinsBtn">🔄 Ausgeblendete Standardrezepte wiederherstellen</button>
     <button class="menu-item menu-cancel" id="menuCancelBtn">Abbrechen</button>
   </div>
 </div>
@@ -382,9 +383,6 @@
     <button id="formCancelBtn">Abbrechen</button>
     <h2 id="formTitle" class="title-font">Rezept hinzufügen</h2>
     <button class="saveBtn" id="formSaveBtn">Speichern</button>
-  </div>
-  <div style="display:none; padding:10px 18px 0;" id="resetBuiltinWrap">
-    <button class="danger-btn" id="resetBuiltinBtn" style="color:var(--text-dim);">↺ Auf Original-Version zurücksetzen</button>
   </div>
   <div class="form-scroll">
     <div class="field">
@@ -535,28 +533,6 @@ function saveUserRecipes(list){
   localStorage.setItem(USER_RECIPES_KEY, JSON.stringify(list));
 }
 
-/* ---- Bearbeitungen/Löschungen von eingebauten Rezepten (recipes.js) ----
-   Eingebaute Rezepte liegen in einer schreibgeschützten Datei. Damit man sie
-   trotzdem bearbeiten oder löschen kann, werden Änderungen separat im
-   Gerätespeicher abgelegt und beim Laden über das Original gelegt. */
-const BUILTIN_OVERRIDES_KEY = "kochbuch_builtin_overrides";
-const BUILTIN_DELETED_KEY = "kochbuch_builtin_deleted";
-
-function loadBuiltinOverrides(){
-  try{ return JSON.parse(localStorage.getItem(BUILTIN_OVERRIDES_KEY) || "{}"); }
-  catch(err){ return {}; }
-}
-function saveBuiltinOverrides(obj){
-  localStorage.setItem(BUILTIN_OVERRIDES_KEY, JSON.stringify(obj));
-}
-function loadDeletedBuiltins(){
-  try{ return JSON.parse(localStorage.getItem(BUILTIN_DELETED_KEY) || "[]"); }
-  catch(err){ return []; }
-}
-function saveDeletedBuiltins(arr){
-  localStorage.setItem(BUILTIN_DELETED_KEY, JSON.stringify(arr));
-}
-
 function normalizeRecipe(data, fallbackTitle, keyPrefix, userAdded){
   const ingRaw = first(data, ["ingredients","zutaten"], []);
   let ingredients = [];
@@ -586,23 +562,9 @@ function normalizeRecipe(data, fallbackTitle, keyPrefix, userAdded){
 function buildLibraryFromMemory(){
   const recipes = [];
   const builtins = (typeof BUILTIN_RECIPES !== "undefined" && Array.isArray(BUILTIN_RECIPES)) ? BUILTIN_RECIPES : [];
-  const overrides = loadBuiltinOverrides();
-  const deleted = new Set(loadDeletedBuiltins());
   builtins.forEach((r, i)=>{
     try{
-      const normalized = normalizeRecipe(r, "Rezept " + (i+1), "builtin::", false);
-      if(deleted.has(normalized.key)) return; // vom Nutzer gelöscht (ausgeblendet)
-      const override = overrides[normalized.key];
-      if(override){
-        const merged = Object.assign({}, normalized, override);
-        merged.key = normalized.key;
-        merged.userAdded = false;
-        merged.edited = true;
-        merged.image = (merged.images && merged.images[0]) || null;
-        recipes.push(merged);
-      } else {
-        recipes.push(normalized);
-      }
+      recipes.push(normalizeRecipe(r, "Rezept " + (i+1), "builtin::", false));
     }catch(err){
       console.warn("Rezept #" + (i+1) + " übersprungen (fehlerhafte Daten):", err);
     }
@@ -652,30 +614,16 @@ document.getElementById("importFolderBtn").addEventListener("click", ()=>{
   closeMenu();
   document.getElementById("folderInput").click();
 });
-document.getElementById("restoreBuiltinsBtn").addEventListener("click", ()=>{
-  closeMenu();
-  const deleted = loadDeletedBuiltins();
-  if(deleted.length === 0){
-    alert("Es sind keine Standardrezepte ausgeblendet.");
-    return;
-  }
-  if(!confirm(`${deleted.length} ausgeblendete(s) Standardrezept(e) wiederherstellen?`)) return;
-  saveDeletedBuiltins([]);
-  DATA = buildLibraryFromMemory();
-  render();
-});
 
 /* ---------------- Backup speichern / laden ---------------- */
 document.getElementById("backupExportBtn").addEventListener("click", ()=>{
   closeMenu();
   const backup = {
     app: "Kochbuch",
-    backup_version: 2,
+    backup_version: 1,
     created: new Date().toISOString(),
     user_recipes: loadUserRecipes(),
-    favorites: [...favorites],
-    builtin_overrides: loadBuiltinOverrides(),
-    builtin_deleted: loadDeletedBuiltins()
+    favorites: [...favorites]
   };
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: "application/json" });
@@ -703,10 +651,7 @@ backupInput.addEventListener("change", async (e)=>{
     const backup = JSON.parse(text);
     const incoming = Array.isArray(backup.user_recipes) ? backup.user_recipes : [];
     const incomingFavs = Array.isArray(backup.favorites) ? backup.favorites : [];
-    const incomingOverrides = (backup.builtin_overrides && typeof backup.builtin_overrides === "object") ? backup.builtin_overrides : {};
-    const incomingDeleted = Array.isArray(backup.builtin_deleted) ? backup.builtin_deleted : [];
-    const hasBuiltinChanges = Object.keys(incomingOverrides).length > 0 || incomingDeleted.length > 0;
-    if(incoming.length === 0 && incomingFavs.length === 0 && !hasBuiltinChanges){
+    if(incoming.length === 0 && incomingFavs.length === 0){
       alert("Diese Backup-Datei enthält keine Rezepte oder Favoriten.");
       return;
     }
@@ -726,17 +671,6 @@ backupInput.addEventListener("change", async (e)=>{
     saveUserRecipes(finalList);
     incomingFavs.forEach(k=>favorites.add(k));
     saveFavorites();
-    if(hasBuiltinChanges){
-      if(replace){
-        saveBuiltinOverrides(incomingOverrides);
-        saveDeletedBuiltins(incomingDeleted);
-      } else {
-        saveBuiltinOverrides(Object.assign({}, loadBuiltinOverrides(), incomingOverrides));
-        const mergedDeleted = new Set(loadDeletedBuiltins());
-        incomingDeleted.forEach(k=>mergedDeleted.add(k));
-        saveDeletedBuiltins([...mergedDeleted]);
-      }
-    }
     DATA = buildLibraryFromMemory();
     render();
     alert(`Backup geladen: ${incoming.length} Rezept(e) übernommen.`);
@@ -927,16 +861,11 @@ function filteredRecipes(){
 function escapeHTML(s){
   return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
-// Bild-URLs können Anführungszeichen enthalten (z.B. manche Foto-Links) -
-// die würden sonst das umgebende url('...') aufbrechen und das Layout zerstören.
-function cssUrl(u){
-  return String(u).replace(/'/g, "%27");
-}
 
 function cardHTML(r, idx){
   const color = colorFor(r.category);
   const isFav = favorites.has(r.key);
-  const thumb = r.image ? `style="background-image:url('${cssUrl(r.image)}')"` : "";
+  const thumb = r.image ? `style="background-image:url('${r.image}')"` : "";
   const thumbInner = r.image ? "" : iconFor(r.category);
   const metaBits = [];
   if(r.time_minutes) metaBits.push(`<span>⏱ ${r.time_minutes} Min.</span>`);
@@ -1018,7 +947,7 @@ function openRecipe(r){
     heroGallery.innerHTML = `<div class="hero-slide">${iconFor(r.category)}</div>`;
     heroDots.innerHTML = "";
   } else {
-    heroGallery.innerHTML = images.map(url => `<div class="hero-slide" style="background-image:url('${cssUrl(url)}')"></div>`).join("");
+    heroGallery.innerHTML = images.map(url => `<div class="hero-slide" style="background-image:url('${url}')"></div>`).join("");
     heroDots.innerHTML = images.length > 1
       ? images.map((_,i)=>`<div class="hero-dot ${i===0?'active':''}"></div>`).join("")
       : "";
@@ -1032,7 +961,7 @@ function openRecipe(r){
 
   const color = colorFor(r.category);
   catTab.style.background = color;
-  catTab.textContent = `${iconFor(r.category)} ${r.category}` + (r.edited ? " · bearbeitet" : "");
+  catTab.textContent = `${iconFor(r.category)} ${r.category}`;
   detailTitle.textContent = r.title;
 
   const chips = [];
@@ -1050,9 +979,8 @@ function openRecipe(r){
   updateDetailFavIcon();
   const editBtn = document.getElementById("editRecipeBtn");
   const delBtn = document.getElementById("deleteRecipeBtn");
-  // Jetzt lassen sich alle Rezepte bearbeiten/löschen, nicht nur selbst hinzugefügte.
-  editBtn.style.display = "flex";
-  delBtn.style.display = "flex";
+  editBtn.style.display = r.userAdded ? "flex" : "none";
+  delBtn.style.display = r.userAdded ? "flex" : "none";
   sheet.classList.add("open");
 }
 
@@ -1118,15 +1046,12 @@ const fSteps = document.getElementById("fSteps");
 const fNotes = document.getElementById("fNotes");
 const categoryList = document.getElementById("categoryList");
 
-let editingId = null; // id des bearbeiteten EIGENEN Rezepts (falls zutreffend)
-let editingBuiltinKey = null; // key des bearbeiteten STANDARD-Rezepts (falls zutreffend)
-const resetBuiltinBtn = document.getElementById("resetBuiltinBtn");
-const resetBuiltinWrap = document.getElementById("resetBuiltinWrap");
+let editingId = null; // null = neues Rezept, sonst id des bearbeiteten Rezepts
 
 function updatePhotoPreview(){
   const url = fImageUrl.value.trim();
   if(url){
-    photoPreview.style.backgroundImage = `url('${cssUrl(url)}')`;
+    photoPreview.style.backgroundImage = `url('${url}')`;
     photoPreview.textContent = "";
   } else {
     photoPreview.style.backgroundImage = "";
@@ -1139,15 +1064,8 @@ fImageUrl.addEventListener("blur", updatePhotoPreview);
 function openForm(recipe){
   categoryList.innerHTML = DATA.categories.map(c=>`<option value="${escapeHTML(c)}">`).join("");
   if(recipe){
-    if(recipe.userAdded){
-      editingId = recipe.id;
-      editingBuiltinKey = null;
-    } else {
-      editingId = null;
-      editingBuiltinKey = recipe.key;
-    }
+    editingId = recipe.id;
     formTitle.textContent = "Rezept bearbeiten";
-    resetBuiltinWrap.style.display = (editingBuiltinKey && recipe.edited) ? "block" : "none";
     fTitle.value = recipe.title || "";
     fCategory.value = recipe.category || "";
     fDifficulty.value = recipe.difficulty || "";
@@ -1166,8 +1084,6 @@ function openForm(recipe){
     fImageUrl.value = (recipe.images && recipe.images[0]) || "";
   } else {
     editingId = null;
-    editingBuiltinKey = null;
-    resetBuiltinWrap.style.display = "none";
     formTitle.textContent = "Rezept hinzufügen";
     fTitle.value = ""; fCategory.value = ""; fDifficulty.value = "";
     fPortions.value = 4; fTime.value = ""; fTags.value = "";
@@ -1182,7 +1098,7 @@ function closeForm(){ formSheet.classList.remove("open"); }
 document.getElementById("fabAdd").addEventListener("click", ()=>openForm(null));
 document.getElementById("formCancelBtn").addEventListener("click", closeForm);
 document.getElementById("editRecipeBtn").addEventListener("click", ()=>{
-  if(currentRecipe) openForm(currentRecipe);
+  if(currentRecipe && currentRecipe.userAdded) openForm(currentRecipe);
 });
 
 document.getElementById("formSaveBtn").addEventListener("click", ()=>{
@@ -1192,58 +1108,36 @@ document.getElementById("formSaveBtn").addEventListener("click", ()=>{
   const steps = fSteps.value.split("\n").map(s=>s.trim()).filter(Boolean);
   const tags = fTags.value.split(",").map(s=>s.trim()).filter(Boolean);
   const imageUrl = fImageUrl.value.trim();
-  const category = fCategory.value.trim() || "Sonstiges";
-  const difficulty = fDifficulty.value;
-  const portions = parseInt(fPortions.value) || 4;
-  const time_minutes = fTime.value ? parseInt(fTime.value) : null;
-  const notes = fNotes.value.trim();
-  const images = imageUrl ? [imageUrl] : [];
 
-  if(editingBuiltinKey){
-    // Standardrezept: Änderungen als "Override" separat speichern,
-    // das Original in recipes.js bleibt unangetastet.
-    const overrides = loadBuiltinOverrides();
-    overrides[editingBuiltinKey] = {
-      title, category, difficulty, portions, time_minutes, tags, ingredients, steps, notes, images
-    };
-    try{
-      saveBuiltinOverrides(overrides);
-    }catch(err){
-      alert("Speichern fehlgeschlagen — der Gerätespeicher könnte voll sein.");
-      return;
+  const list = loadUserRecipes();
+  if(editingId){
+    const idx = list.findIndex(r=>r.id===editingId);
+    if(idx>-1){
+      list[idx] = {
+        ...list[idx],
+        title, category: fCategory.value.trim() || "Sonstiges",
+        difficulty: fDifficulty.value, portions: parseInt(fPortions.value)||4,
+        time_minutes: fTime.value ? parseInt(fTime.value) : null,
+        tags, ingredients, steps, notes: fNotes.value.trim(),
+        images: imageUrl ? [imageUrl] : []
+      };
     }
   } else {
-    const list = loadUserRecipes();
-    if(editingId){
-      const idx = list.findIndex(r=>r.id===editingId);
-      if(idx>-1){
-        list[idx] = { ...list[idx], title, category, difficulty, portions, time_minutes, tags, ingredients, steps, notes, images };
-      }
-    } else {
-      list.push({
-        id: "u_" + Date.now() + "_" + Math.random().toString(36).slice(2,8),
-        title, category, difficulty, portions, time_minutes, tags, ingredients, steps, notes, images
-      });
-    }
-    try{
-      saveUserRecipes(list);
-    }catch(err){
-      alert("Speichern fehlgeschlagen — der Gerätespeicher könnte voll sein.");
-      return;
-    }
+    list.push({
+      id: "u_" + Date.now() + "_" + Math.random().toString(36).slice(2,8),
+      title, category: fCategory.value.trim() || "Sonstiges",
+      difficulty: fDifficulty.value, portions: parseInt(fPortions.value)||4,
+      time_minutes: fTime.value ? parseInt(fTime.value) : null,
+      tags, ingredients, steps, notes: fNotes.value.trim(),
+      images: imageUrl ? [imageUrl] : []
+    });
   }
-  DATA = buildLibraryFromMemory();
-  closeForm();
-  sheet.classList.remove("open");
-  render();
-});
-
-resetBuiltinBtn.addEventListener("click", ()=>{
-  if(!editingBuiltinKey) return;
-  if(!confirm("Eigene Änderungen an diesem Rezept verwerfen und Original wiederherstellen?")) return;
-  const overrides = loadBuiltinOverrides();
-  delete overrides[editingBuiltinKey];
-  saveBuiltinOverrides(overrides);
+  try{
+    saveUserRecipes(list);
+  }catch(err){
+    alert("Speichern fehlgeschlagen — der Gerätespeicher könnte voll sein.");
+    return;
+  }
   DATA = buildLibraryFromMemory();
   closeForm();
   sheet.classList.remove("open");
@@ -1251,20 +1145,10 @@ resetBuiltinBtn.addEventListener("click", ()=>{
 });
 
 document.getElementById("deleteRecipeBtn").addEventListener("click", ()=>{
-  if(!currentRecipe) return;
-  if(currentRecipe.userAdded){
-    if(!confirm(`„${currentRecipe.title}" wirklich löschen?`)) return;
-    const list = loadUserRecipes().filter(r=>r.id !== currentRecipe.id);
-    saveUserRecipes(list);
-  } else {
-    if(!confirm(`„${currentRecipe.title}" ausblenden? Du kannst es später über das Menü (⋮ → Standardrezepte wiederherstellen) zurückholen.`)) return;
-    const deleted = loadDeletedBuiltins();
-    if(!deleted.includes(currentRecipe.key)) deleted.push(currentRecipe.key);
-    saveDeletedBuiltins(deleted);
-    // Falls das Rezept vorher bearbeitet wurde, auch die Bearbeitung entsorgen.
-    const overrides = loadBuiltinOverrides();
-    if(overrides[currentRecipe.key]){ delete overrides[currentRecipe.key]; saveBuiltinOverrides(overrides); }
-  }
+  if(!currentRecipe || !currentRecipe.userAdded) return;
+  if(!confirm(`„${currentRecipe.title}" wirklich löschen?`)) return;
+  const list = loadUserRecipes().filter(r=>r.id !== currentRecipe.id);
+  saveUserRecipes(list);
   DATA = buildLibraryFromMemory();
   sheet.classList.remove("open");
   render();
