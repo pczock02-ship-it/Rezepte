@@ -1,7 +1,7 @@
 // Kochbuch Service Worker
 // Versionsnummer bei jeder Änderung an den App-Dateien hochzählen,
 // damit Handys die neue Version laden.
-const CACHE_VERSION = "kochbuch-v1";
+const CACHE_VERSION = "kochbuch-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
