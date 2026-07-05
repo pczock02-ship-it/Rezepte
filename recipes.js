@@ -27,7 +27,7 @@
    lässt das Feld leer).
    ============================================================ */
 
-const BUILTIN_RECIPES = [
+var BUILTIN_RECIPES = [
   {
     title: "Apfel-Schmand-Torte",
     category: "Kuchen",
