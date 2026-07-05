@@ -58,7 +58,13 @@
   .brand{ display:flex; align-items:center; gap:8px; margin-bottom:2px;}
   .brand .dot{ color:var(--mint); font-size:15px; }
   .brand h1{ font-size:20px; font-weight:800; margin:0; flex:1; }
-  .brand .changeBtn{ background:none; border:none; color:var(--text-faint); font-size:12px; padding:4px; }
+  .brand .changeBtn{
+    background:var(--bg3); border:1px solid var(--border); color:var(--text);
+    font-size:22px; font-weight:800; line-height:1; padding:0;
+    width:42px; height:42px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .brand .changeBtn:active{ background:var(--bg3-hover); }
   .brand .sub{ color:var(--text-faint); font-size:11.5px; margin:2px 0 12px 20px;}
 
   .search-wrap{
@@ -310,6 +316,9 @@
   <div class="menu-panel">
     <button class="menu-item" id="addRecipeBtn">➕ Rezept hinzufügen</button>
     <button class="menu-item" id="installBtn" style="display:none;">📲 App installieren</button>
+    <button class="menu-item" id="backupExportBtn">💾 Backup speichern</button>
+    <button class="menu-item" id="backupImportBtn">📥 Backup laden</button>
+    <input type="file" id="backupInput" accept="application/json,.json" style="display:none;">
     <button class="menu-item" id="importFolderBtn">📂 Alte Rezepte aus Ordner importieren</button>
     <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none;">
     <button class="menu-item menu-cancel" id="menuCancelBtn">Abbrechen</button>
@@ -584,9 +593,11 @@ function loadAndShow(){
   }catch(err){
     pickError.textContent = "⚠ " + err.message;
     pickError.style.display = "block";
+    pickScreen.style.display = "flex";
+    mainHeader.style.display = "none";
+    mainArea.style.display = "none";
   }
 }
-loadAndShow();
 
 /* ---------------- Menü (⋮) ---------------- */
 const menuSheet = document.getElementById("menuSheet");
@@ -599,6 +610,72 @@ document.getElementById("addRecipeBtn").addEventListener("click", ()=>{ closeMen
 document.getElementById("importFolderBtn").addEventListener("click", ()=>{
   closeMenu();
   document.getElementById("folderInput").click();
+});
+
+/* ---------------- Backup speichern / laden ---------------- */
+document.getElementById("backupExportBtn").addEventListener("click", ()=>{
+  closeMenu();
+  const backup = {
+    app: "Kochbuch",
+    backup_version: 1,
+    created: new Date().toISOString(),
+    user_recipes: loadUserRecipes(),
+    favorites: [...favorites]
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `kochbuch-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+});
+
+const backupInput = document.getElementById("backupInput");
+document.getElementById("backupImportBtn").addEventListener("click", ()=>{
+  closeMenu();
+  backupInput.click();
+});
+backupInput.addEventListener("change", async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    const incoming = Array.isArray(backup.user_recipes) ? backup.user_recipes : [];
+    const incomingFavs = Array.isArray(backup.favorites) ? backup.favorites : [];
+    if(incoming.length === 0 && incomingFavs.length === 0){
+      alert("Diese Backup-Datei enthält keine Rezepte oder Favoriten.");
+      return;
+    }
+    const replace = confirm(
+      `Backup gefunden: ${incoming.length} Rezept(e).\n\n` +
+      `OK = Backup ERSETZT deine aktuellen eigenen Rezepte auf diesem Gerät.\n` +
+      `Abbrechen = Backup wird zu deinen vorhandenen Rezepten HINZUGEFÜGT.`
+    );
+    let finalList;
+    if(replace){
+      finalList = incoming;
+    } else {
+      const existing = loadUserRecipes();
+      const existingIds = new Set(existing.map(r=>r.id));
+      finalList = existing.concat(incoming.filter(r=>!existingIds.has(r.id)));
+    }
+    saveUserRecipes(finalList);
+    incomingFavs.forEach(k=>favorites.add(k));
+    saveFavorites();
+    DATA = buildLibraryFromMemory();
+    render();
+    alert(`Backup geladen: ${incoming.length} Rezept(e) übernommen.`);
+  }catch(err){
+    alert("⚠ Backup konnte nicht gelesen werden: " + err.message);
+  }finally{
+    backupInput.value = "";
+  }
 });
 
 /* ---------------- Import alter Ordner (einmalig, Migration) ---------------- */
@@ -1119,6 +1196,14 @@ if("serviceWorker" in navigator){
     });
   });
 }
+
+/* ============================================================
+   Jetzt alles laden und anzeigen — erst hier aufrufen, weil ab
+   hier alle benötigten Variablen (favorites, listEl, usw.) weiter
+   oben im Skript bereits definiert wurden.
+   ============================================================ */
+loadAndShow();
+
 </script>
 </body>
 </html>
