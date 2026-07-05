@@ -1,7 +1,7 @@
 // Kochbuch Service Worker
 // Versionsnummer bei jeder Änderung an den App-Dateien hochzählen,
 // damit Handys die neue Version laden.
-const CACHE_VERSION = "kochbuch-v2";
+const CACHE_VERSION = "kochbuch-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -29,22 +29,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first für die App-Shell, Network-first (mit Cache-Fallback) für alles andere.
+// Network-first: lädt immer zuerst die neueste Version aus dem Internet
+// und merkt sie sich. Nur wenn kein Netz da ist, wird die gespeicherte
+// Version aus dem letzten Mal benutzt (Offline-Nutzung).
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === "basic") {
-            const clone = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200 && response.type === "basic") {
+          const clone = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
